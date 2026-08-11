@@ -18,11 +18,12 @@
     kr:         { label: '한국주식',          color: '--c-kr' },
     isa:        { label: 'ISA',              color: '--c-isa' },
     pension:    { label: '연금 (퇴직연금·IRP)', color: '--c-pension' },
+    crypto:     { label: '암호화폐',          color: '--c-crypto' },
     gold:       { label: '금 · 원자재',       color: '--c-gold' },
     cash:       { label: '현금 · 예수금',      color: '--c-cash' },
     etc:        { label: '기타 자산',         color: '--c-etc' }
   };
-  var ACCT_ORDER = ['realestate', 'us', 'kr', 'isa', 'pension', 'gold', 'cash', 'etc'];
+  var ACCT_ORDER = ['realestate', 'us', 'kr', 'isa', 'pension', 'crypto', 'gold', 'cash', 'etc'];
 
   /* ─────────────── 종목 · 상품별 통상 수익률 ───────────────
      rate = 통상 장기 수익률 범위(lo~hi)의 중간값. 사용자가 직접 수정하지 않습니다.
@@ -61,6 +62,15 @@
                     note: '분배율은 높지만 상승 상단이 잘려 총수익은 지수보다 낮음' },
     ace_ndx_b50:  { g: '국내상장 해외ETF', label: 'ACE 미국나스닥100미국채혼합50액티브',
                     mix: [['qqq', 0.5], ['agg', 0.5]] },
+
+    /* 암호화폐 */
+    btc:      { g: '암호화폐', label: '비트코인 (BTC)', lo: -10.0, hi: 30.0, sens: 3.2,
+                note: '실패~지속 채택 시나리오의 중간값. 과거 −80% 급락이 네 차례' },
+    eth:      { g: '암호화폐', label: '이더리움 (ETH)', lo: -15.0, hi: 30.0, sens: 3.8,
+                note: '경쟁 체인 리스크로 BTC보다 하방이 넓음' },
+    altcoin:  { g: '암호화폐', label: '기타 알트코인', lo: -30.0, hi: 25.0, sens: 4.5,
+                note: '대부분의 알트코인은 장기적으로 가치를 잃습니다' },
+    coincash: { g: '암호화폐', label: '거래소 예치금 (KRW)', lo: 1.6, hi: 2.6, sens: 0.1 },
 
     /* 금 · 원자재 */
     gold: { g: '금 · 원자재', label: '금 현물 (99.99)', lo: 3.0, hi: 6.0, sens: 0.7,
@@ -110,7 +120,7 @@
   /* 계좌 구분을 처음 고를 때 붙는 기본 종목 */
   var ACCT_DEFAULT_SYM = {
     realestate: 'apt_seoul', us: 'qqq', kr: 'kospi', isa: 'qld',
-    pension: 'pen_blend', gold: 'gold', cash: 'krdeposit', etc: 'us_etc'
+    pension: 'pen_blend', crypto: 'btc', gold: 'gold', cash: 'krdeposit', etc: 'us_etc'
   };
 
   /* ─────────────── 적립 계획 ─────────────── */
@@ -235,6 +245,10 @@
         { id: id(), acct: 'pension', sym: 'kodex_ndx',   name: 'KODEX 미국나스닥100',   amount: 3502, plans: [], on: true },
         { id: id(), acct: 'pension', sym: 'ace_ndx_b50', name: 'ACE 나스닥100 미국채혼합50', amount: 1481, plans: [], on: true },
         { id: id(), acct: 'pension', sym: 'krdeposit',   name: '연금 현금성자산',        amount: 2, plans: [], on: true },
+
+        /* 암호화폐 */
+        { id: id(), acct: 'crypto', sym: 'btc', name: '비트코인 (0.09 BTC)', amount: 815, plans: [], on: true },
+        { id: id(), acct: 'crypto', sym: 'eth', name: '이더리움 (1 ETH)',    amount: 266, plans: [], on: true },
 
         /* 금현물 */
         { id: id(), acct: 'gold', sym: 'gold', name: '금 현물 1kg', amount: 160, plans: [], on: true }

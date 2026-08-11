@@ -37,9 +37,10 @@
   --c-kr:          #34D8F0;
   --c-isa:         #B07CFF;
   --c-pension:     #3DDC97;
+  --c-crypto:      #FF5FA2;
   --c-gold:        #F5D33F;
   --c-cash:        #7F8CA6;
-  --c-etc:         #FF7FB8;
+  --c-etc:         #9E9BC0;
   --c-debt:        #FF6B7A;
 
   --r-sm: 10px;
@@ -76,9 +77,10 @@ html[data-theme="light"] {
   --c-kr:          #0FA6C4;
   --c-isa:         #8A4FE8;
   --c-pension:     #0FA36B;
+  --c-crypto:      #DB2777;
   --c-gold:        #C7A50A;
   --c-cash:        #7A879C;
-  --c-etc:         #E0559A;
+  --c-etc:         #7C77A8;
   --c-debt:        #E03E52;
   --shadow: 0 1px 2px rgba(16,24,40,.05), 0 12px 28px -20px rgba(16,24,40,.35);
 }
