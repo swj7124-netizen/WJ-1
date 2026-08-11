@@ -10,18 +10,88 @@
   var VERSION = '1.0.0';
   var THIS_YEAR = new Date().getFullYear();
 
-  /* ─────────────── 자산군 정의 ───────────────
-     sens = 시나리오 조정폭 민감도(변동성 대리지표)  */
-  var CATS = {
-    realestate: { label: '부동산 · 아파트', color: '--c-realestate', rate: 2.5, sens: 0.6 },
-    us:         { label: '미국주식',        color: '--c-us',         rate: 8.0, sens: 1.25 },
-    kr:         { label: '한국주식',        color: '--c-kr',         rate: 5.0, sens: 1.25 },
-    isa:        { label: 'ISA',            color: '--c-isa',        rate: 6.0, sens: 1.0 },
-    pension:    { label: '연금 (연금저축·IRP)', color: '--c-pension', rate: 5.0, sens: 0.8 },
-    cash:       { label: '현금 · 예금',     color: '--c-cash',       rate: 2.5, sens: 0.2 },
-    etc:        { label: '기타 자산',       color: '--c-etc',        rate: 3.0, sens: 1.0 }
+  /* ─────────────── 계좌 구분 ───────────────
+     색상과 자산 구성 그래프의 묶음 단위. 수익률과는 무관합니다. */
+  var ACCOUNTS = {
+    realestate: { label: '부동산',           color: '--c-realestate' },
+    us:         { label: '미국주식',          color: '--c-us' },
+    kr:         { label: '한국주식',          color: '--c-kr' },
+    isa:        { label: 'ISA',              color: '--c-isa' },
+    pension:    { label: '연금 (연금저축·IRP)', color: '--c-pension' },
+    cash:       { label: '현금 · 예금',       color: '--c-cash' },
+    etc:        { label: '기타 자산',         color: '--c-etc' }
   };
-  var CAT_ORDER = ['realestate', 'us', 'kr', 'isa', 'pension', 'cash', 'etc'];
+  var ACCT_ORDER = ['realestate', 'us', 'kr', 'isa', 'pension', 'cash', 'etc'];
+
+  /* ─────────────── 종목 · 상품별 통상 수익률 ───────────────
+     rate = 통상 장기 수익률 범위(lo~hi)의 중간값. 사용자가 직접 수정하지 않습니다.
+     sens = 시나리오 조정폭 민감도(변동성 대리지표).
+     mix  = 다른 종목의 가중 조합. rate/sens 를 구성종목에서 자동 계산합니다. */
+  var INSTRUMENTS = {
+    /* 부동산 */
+    apt_seoul: { g: '부동산', label: '서울 아파트', lo: 3.0, hi: 6.0, sens: 0.7,
+                 note: 'KB 서울 아파트 매매가격지수 장기 추세' },
+    apt_metro: { g: '부동산', label: '수도권 아파트', lo: 2.5, hi: 4.5, sens: 0.65 },
+    apt_other: { g: '부동산', label: '지방 · 전국 아파트', lo: 2.0, hi: 3.0, sens: 0.6 },
+
+    /* 미국주식 (1배) */
+    qqq:    { g: '미국주식', label: '나스닥100 1배 (QQQ)', lo: 10.0, hi: 13.0, sens: 1.2 },
+    spy:    { g: '미국주식', label: 'S&P500 1배 (SPY · VOO)', lo: 8.0, hi: 11.0, sens: 1.0 },
+    dgro:   { g: '미국주식', label: 'DGRO 배당성장', lo: 8.0, hi: 10.0, sens: 0.9 },
+    soxx:   { g: '미국주식', label: '미국 반도체 1배 (SOXX)', lo: 11.0, hi: 17.0, sens: 1.7 },
+    us_etc: { g: '미국주식', label: '기타 미국주식 · ETF', lo: 8.0, hi: 11.0, sens: 1.1 },
+
+    /* 미국 레버리지 — 변동성 손실(decay)과 조달비용을 반영한 값 */
+    qld:  { g: '미국 레버리지', label: '나스닥100 2배 (QLD)', lo: 5.0, hi: 20.0, sens: 3.0, lev: 2,
+            note: '기초지수 2배가 아닙니다. 변동성 손실·조달비용 반영' },
+    upro: { g: '미국 레버리지', label: 'S&P500 3배 (UPRO · SPXL)', lo: 3.0, hi: 20.0, sens: 3.6, lev: 3,
+            note: '변동성 손실이 가장 큰 구간. 급락장 회복이 매우 느림' },
+    usdx: { g: '미국 레버리지', label: 'USD 미국 반도체 2배', lo: -2.0, hi: 18.0, sens: 3.4, lev: 2,
+            note: '반도체 변동성이 커 1배보다 기대값이 낮아질 수 있음' },
+
+    /* 현금성 · 채권 */
+    sgov:   { g: '현금성 · 채권', label: 'SGOV 초단기 미국국채', lo: 3.0, hi: 4.0, sens: 0.15 },
+    agg:    { g: '현금성 · 채권', label: '미국 종합채권 (AGG)', lo: 3.5, hi: 5.5, sens: 0.4 },
+    krcash: { g: '현금성 · 채권', label: '예금 · 파킹통장', lo: 2.5, hi: 3.5, sens: 0.15 },
+
+    /* 한국주식 */
+    kospi:  { g: '한국주식', label: '코스피 지수', lo: 4.0, hi: 6.0, sens: 1.2 },
+    kr_etc: { g: '한국주식', label: '기타 한국주식', lo: 4.0, hi: 6.0, sens: 1.4 },
+
+    /* 혼합 포트폴리오 */
+    qqq_agg_5050: { g: '혼합 포트폴리오', label: '나스닥1배 · 채권 5:5',
+                    mix: [['qqq', 0.5], ['agg', 0.5]] },
+    pen_blend:    { g: '혼합 포트폴리오', label: '나스닥1배 70% + (나스닥1배·채권 5:5) 30%',
+                    mix: [['qqq', 0.7], ['qqq_agg_5050', 0.3]], note: '연금 기본 배분' }
+  };
+
+  /** 종목의 적용 수익률·민감도를 확정 (혼합상품은 구성종목 가중평균) */
+  function resolve(sym) {
+    var it = INSTRUMENTS[sym];
+    if (!it) return { rate: 0, sens: 1, lo: 0, hi: 0, label: '알 수 없음' };
+    if (it._r == null) {
+      if (it.mix) {
+        var r = 0, s = 0, lo = 0, hi = 0;
+        it.mix.forEach(function (m) {
+          var c = resolve(m[0]);
+          r += c.rate * m[1]; s += c.sens * m[1]; lo += c.lo * m[1]; hi += c.hi * m[1];
+        });
+        it._r = Math.round(r * 10) / 10; it._s = Math.round(s * 100) / 100;
+        it._lo = Math.round(lo * 10) / 10; it._hi = Math.round(hi * 10) / 10;
+      } else {
+        it._r = Math.round((it.lo + it.hi) / 2 * 10) / 10;   // 통상 범위의 중간값
+        it._s = it.sens; it._lo = it.lo; it._hi = it.hi;
+      }
+    }
+    return { rate: it._r, sens: it._s, lo: it._lo, hi: it._hi,
+             label: it.label, g: it.g, lev: it.lev, note: it.note };
+  }
+
+  /* 계좌 구분을 처음 고를 때 붙는 기본 종목 */
+  var ACCT_DEFAULT_SYM = {
+    realestate: 'apt_seoul', us: 'qqq', kr: 'kospi',
+    isa: 'qld', pension: 'pen_blend', cash: 'krcash', etc: 'us_etc'
+  };
 
   var DEBT_TYPES = {
     annuity:        '원리금균등상환',
@@ -92,11 +162,15 @@
         birthYear: '', theme: 'auto', terms: 'nominal'
       },
       assets: [
-        { id: id(), cat: 'realestate', name: '우리집 아파트', amount: 80000, rate: 2.5, monthly: 0, on: true },
-        { id: id(), cat: 'us',         name: '미국주식',      amount: 5000,  rate: 8.0, monthly: 100, on: true },
-        { id: id(), cat: 'kr',         name: '한국주식',      amount: 2000,  rate: 5.0, monthly: 0, on: true },
-        { id: id(), cat: 'isa',        name: 'ISA 계좌',      amount: 2000,  rate: 6.0, monthly: 50, on: true },
-        { id: id(), cat: 'pension',    name: '연금저축 · IRP', amount: 3000, rate: 5.0, monthly: 60, on: true }
+        { id: id(), acct: 'realestate', sym: 'apt_seoul', name: '우리집 아파트', amount: 80000, monthly: 0, on: true },
+        { id: id(), acct: 'us',      sym: 'qld',       name: '나스닥 2배 (QLD)',   amount: 3000, monthly: 50, on: true },
+        { id: id(), acct: 'us',      sym: 'upro',      name: 'S&P500 3배',        amount: 1500, monthly: 0, on: true },
+        { id: id(), acct: 'us',      sym: 'dgro',      name: 'DGRO',              amount: 1500, monthly: 30, on: true },
+        { id: id(), acct: 'us',      sym: 'usdx',      name: 'USD (반도체 2배)',   amount: 1000, monthly: 0, on: true },
+        { id: id(), acct: 'us',      sym: 'sgov',      name: 'SGOV',              amount: 1000, monthly: 0, on: true },
+        { id: id(), acct: 'kr',      sym: 'kospi',     name: '한국주식',           amount: 2000, monthly: 0, on: true },
+        { id: id(), acct: 'isa',     sym: 'qld',       name: 'ISA (나스닥 2배)',   amount: 2000, monthly: 50, on: true },
+        { id: id(), acct: 'pension', sym: 'pen_blend', name: '연금저축 · IRP',     amount: 3000, monthly: 60, on: true }
       ],
       debts: [
         { id: id(), name: '주택담보대출', balance: 30000, rate: 3.8, years: 25, grace: 0, type: 'annuity', extra: 0, on: true }
@@ -130,7 +204,10 @@
     s.history = Array.isArray(s.history) ? s.history : [];
     s.assets.forEach(function (a) {
       if (!a.id) a.id = id();
-      if (!CATS[a.cat]) a.cat = 'etc';
+      if (!a.acct) a.acct = ACCOUNTS[a.cat] ? a.cat : 'etc';   // 구버전(cat) 호환
+      if (!ACCOUNTS[a.acct]) a.acct = 'etc';
+      if (!INSTRUMENTS[a.sym]) a.sym = ACCT_DEFAULT_SYM[a.acct];
+      delete a.cat; delete a.rate;                              // 수익률은 종목에서 결정
       if (a.on === undefined) a.on = true;
     });
     s.debts.forEach(function (x) {
@@ -194,7 +271,7 @@
 
   /**
    * offsetPP: 시나리오 조정폭(%p). 자산군 민감도(sens)가 곱해집니다.
-   * 반환: [{year, assets, debt, net, byCat, interest, principal}]
+   * 반환: [{year, assets, debt, net, byAcct, interest, principal}]
    */
   function project(offsetPP) {
     var S = state.settings;
@@ -202,7 +279,10 @@
     var g = num(S.contribGrowth) / 100;
 
     var assets = state.assets.filter(function (a) { return a.on; })
-      .map(function (a) { return { cat: a.cat, val: num(a.amount), rate: num(a.rate), monthly: num(a.monthly) }; });
+      .map(function (a) {
+        var m = resolve(a.sym);
+        return { acct: a.acct, val: num(a.amount), rate: m.rate, sens: m.sens, monthly: num(a.monthly) };
+      });
     var debts = state.debts.filter(function (d) { return d.on; })
       .map(function (d) {
         return { type: d.type, rate: num(d.rate), years: num(d.years), grace: num(d.grace),
@@ -211,10 +291,10 @@
 
     var rows = [];
     function snap(y, interest, principal) {
-      var byCat = {}, tot = 0;
-      assets.forEach(function (a) { byCat[a.cat] = (byCat[a.cat] || 0) + a.val; tot += a.val; });
+      var byAcct = {}, tot = 0;
+      assets.forEach(function (a) { byAcct[a.acct] = (byAcct[a.acct] || 0) + a.val; tot += a.val; });
       var debt = debts.reduce(function (s, d) { return s + d.bal; }, 0);
-      rows.push({ year: y, assets: tot, debt: debt, net: tot - debt, byCat: byCat,
+      rows.push({ year: y, assets: tot, debt: debt, net: tot - debt, byAcct: byAcct,
                   interest: interest || 0, principal: principal || 0 });
     }
 
@@ -222,8 +302,7 @@
 
     for (var k = 1; k <= N; k++) {
       assets.forEach(function (a) {
-        var sens = CATS[a.cat] ? CATS[a.cat].sens : 1;
-        var r = Math.max(-0.95, (a.rate + offsetPP * sens) / 100);
+        var r = Math.max(-0.95, (a.rate + offsetPP * a.sens) / 100);
         var contrib = a.monthly * 12 * Math.pow(1 + g, k - 1);
         // 연중 균등 납입 근사: 평균 반년치 수익 반영
         a.val = a.val * (1 + r) + contrib * Math.pow(1 + r, 0.5);
@@ -240,10 +319,10 @@
     var inf = num(state.settings.inflation) / 100;
     return rows.map(function (r) {
       var f = Math.pow(1 + inf, r.year - THIS_YEAR);
-      var byCat = {};
-      for (var k in r.byCat) byCat[k] = r.byCat[k] / f;
+      var byAcct = {};
+      for (var k in r.byAcct) byAcct[k] = r.byAcct[k] / f;
       return { year: r.year, assets: r.assets / f, debt: r.debt / f, net: r.net / f,
-               byCat: byCat, interest: r.interest / f, principal: r.principal / f };
+               byAcct: byAcct, interest: r.interest / f, principal: r.principal / f };
     });
   }
 
@@ -292,18 +371,33 @@
   /* ═══════════════ 렌더 : 자산 / 부채 ═══════════════ */
 
   function totals() {
-    var a = 0, d = 0, byCat = {};
+    var a = 0, d = 0, byAcct = {};
     state.assets.forEach(function (x) {
       if (!x.on) return;
       a += num(x.amount);
-      byCat[x.cat] = (byCat[x.cat] || 0) + num(x.amount);
+      byAcct[x.acct] = (byAcct[x.acct] || 0) + num(x.amount);
     });
     state.debts.forEach(function (x) { if (x.on) d += num(x.balance); });
-    return { assets: a, debts: d, net: a - d, byCat: byCat };
+    return { assets: a, debts: d, net: a - d, byAcct: byAcct };
+  }
+
+  /** 종목 선택 <select> 의 optgroup 마크업 */
+  function symOptions() {
+    var groups = [], byGroup = {};
+    Object.keys(INSTRUMENTS).forEach(function (k) {
+      var g = INSTRUMENTS[k].g;
+      if (!byGroup[g]) { byGroup[g] = []; groups.push(g); }
+      byGroup[g].push(k);
+    });
+    return groups.map(function (g) {
+      return '<optgroup label="' + g + '">' + byGroup[g].map(function (k) {
+        return '<option value="' + k + '">' + INSTRUMENTS[k].label + '</option>';
+      }).join('') + '</optgroup>';
+    }).join('');
   }
 
   function assetCard(a) {
-    var c = CATS[a.cat] || CATS.etc;
+    var c = ACCOUNTS[a.acct] || ACCOUNTS.etc;
     var node = document.createElement('div');
     node.className = 'item' + (a.on ? '' : ' is-off');
     node.dataset.id = a.id;
@@ -319,17 +413,18 @@
       '</div>' +
       '<div class="item-body">' +
         '<div class="grid-2">' +
-          '<div class="field full"><label>자산 종류</label>' +
-            '<select data-f="cat">' + CAT_ORDER.map(function (k) {
-              return '<option value="' + k + '">' + CATS[k].label + '</option>';
+          '<div class="field full"><label>보유 종목 · 상품</label>' +
+            '<select data-f="sym">' + symOptions() + '</select></div>' +
+          '<div class="field full"><label>계좌 구분</label>' +
+            '<select data-f="acct">' + ACCT_ORDER.map(function (k) {
+              return '<option value="' + k + '">' + ACCOUNTS[k].label + '</option>';
             }).join('') + '</select></div>' +
           '<div class="field"><label>현재 평가금액</label>' +
             '<div class="suffix-wrap"><input type="text" inputmode="numeric" data-f="amount"><span class="suffix">만원</span></div></div>' +
-          '<div class="field"><label>연 수익률</label>' +
-            '<div class="suffix-wrap"><input type="text" inputmode="decimal" data-f="rate"><span class="suffix">%</span></div></div>' +
-          '<div class="field full"><label>매월 추가 납입액</label>' +
+          '<div class="field"><label>매월 추가 납입액</label>' +
             '<div class="suffix-wrap"><input type="text" inputmode="numeric" data-f="monthly"><span class="suffix">만원</span></div></div>' +
         '</div>' +
+        '<div class="rate-note" data-rate></div>' +
         '<div class="item-actions">' +
           '<button class="btn-mini" data-act="toggle"></button>' +
           '<button class="btn-mini danger" data-act="del">삭제</button>' +
@@ -337,9 +432,9 @@
       '</div>';
 
     $('[data-f=name]', node).value = a.name || '';
-    $('[data-f=cat]', node).value = a.cat;
+    $('[data-f=sym]', node).value = a.sym;
+    $('[data-f=acct]', node).value = a.acct;
     $('[data-f=amount]', node).value = comma(a.amount);
-    $('[data-f=rate]', node).value = a.rate;
     $('[data-f=monthly]', node).value = comma(a.monthly);
     $('[data-act=toggle]', node).textContent = a.on ? '계산에서 제외' : '계산에 포함';
 
@@ -350,10 +445,11 @@
     $$('[data-f]', node).forEach(function (inp) {
       inp.addEventListener('input', function () {
         var f = inp.dataset.f;
-        if (f === 'cat') {
-          a.cat = inp.value;
-          $('.item-swatch', node).style.background = cvar((CATS[a.cat] || CATS.etc).color);
-          if (!num(a.rate)) { a.rate = CATS[a.cat].rate; $('[data-f=rate]', node).value = a.rate; }
+        if (f === 'acct') {
+          a.acct = inp.value;
+          $('.item-swatch', node).style.background = cvar((ACCOUNTS[a.acct] || ACCOUNTS.etc).color);
+        } else if (f === 'sym') {
+          a.sym = inp.value;
         } else if (f === 'name') {
           a.name = inp.value;
         } else {
@@ -385,10 +481,23 @@
   }
 
   function refreshCard(node, a) {
+    var m = resolve(a.sym);
     $('.item-amt', node).textContent = won(a.amount);
     $('.item-meta', node).textContent =
-      (CATS[a.cat] || CATS.etc).label + ' · 연 ' + num(a.rate).toFixed(1) + '%' +
+      m.label + ' · 연 ' + m.rate.toFixed(1) + '%' +
       (num(a.monthly) ? ' · 월 ' + comma(a.monthly) + '만' : '');
+
+    var rn = $('[data-rate]', node);
+    if (rn) {
+      rn.innerHTML =
+        '<div class="rate-main">' +
+          '<span>적용 수익률</span>' +
+          '<b>연 ' + m.rate.toFixed(1) + '%</b>' +
+        '</div>' +
+        '<div class="rate-range">통상 범위 ' + m.lo.toFixed(1) + ' ~ ' + m.hi.toFixed(1) + '% 의 중간값' +
+          (m.lev ? ' · <span class="lev">' + m.lev + '배 레버리지</span>' : '') + '</div>' +
+        (m.note ? '<div class="rate-desc">' + m.note + '</div>' : '');
+    }
   }
 
   function debtCard(d) {
@@ -517,19 +626,45 @@
     var bar = $('#allocBar'), leg = $('#allocLegend');
     bar.innerHTML = ''; leg.innerHTML = '';
     if (t.assets <= 0) { bar.innerHTML = '<span style="width:100%;background:var(--surface-3)"></span>'; return; }
-    CAT_ORDER.forEach(function (k) {
-      var v = t.byCat[k] || 0;
+    ACCT_ORDER.forEach(function (k) {
+      var v = t.byAcct[k] || 0;
       if (v <= 0) return;
       var pct = v / t.assets * 100;
       var s = document.createElement('span');
       s.style.width = pct + '%';
-      s.style.background = cvar(CATS[k].color);
+      s.style.background = cvar(ACCOUNTS[k].color);
       bar.appendChild(s);
       var i = document.createElement('i');
-      i.style.setProperty('--dot', cvar(CATS[k].color));
-      i.textContent = CATS[k].label.split(' · ')[0] + ' ' + pct.toFixed(0) + '%';
+      i.style.setProperty('--dot', cvar(ACCOUNTS[k].color));
+      i.textContent = ACCOUNTS[k].label.split(' (')[0].split(' · ')[0] + ' ' + pct.toFixed(0) + '%';
       leg.appendChild(i);
     });
+  }
+
+  /** 데이터 탭 · 종목별 적용 수익률 표 */
+  function renderRateRef() {
+    var box = $('#rateRef');
+    if (!box) return;
+    var groups = [], byGroup = {};
+    Object.keys(INSTRUMENTS).forEach(function (k) {
+      var g = INSTRUMENTS[k].g;
+      if (!byGroup[g]) { byGroup[g] = []; groups.push(g); }
+      byGroup[g].push(k);
+    });
+    var used = {};
+    state.assets.forEach(function (a) { if (a.on) used[a.sym] = true; });
+
+    box.innerHTML = groups.map(function (g) {
+      return '<div class="rr-group">' + g + '</div>' +
+        byGroup[g].map(function (k) {
+          var m = resolve(k);
+          return '<div class="rr' + (used[k] ? ' is-used' : '') + '">' +
+            '<span class="rr-name">' + m.label + (used[k] ? ' <em>보유</em>' : '') + '</span>' +
+            '<span class="rr-rate">' + m.rate.toFixed(1) + '%</span>' +
+            '<span class="rr-range">' + m.lo.toFixed(1) + '~' + m.hi.toFixed(1) + '</span>' +
+          '</div>';
+        }).join('');
+    }).join('');
   }
 
   /* ═══════════════ 렌더 : 헤더 ═══════════════ */
@@ -614,18 +749,18 @@
     }).join('');
 
     /* 구성 스택 */
-    var used = CAT_ORDER.filter(function (k) {
-      return s.base.some(function (r) { return (r.byCat[k] || 0) > 0; });
+    var used = ACCT_ORDER.filter(function (k) {
+      return s.base.some(function (r) { return (r.byAcct[k] || 0) > 0; });
     });
     Chart.stack($('#chartStack'), {
       x: s.base.map(function (r) { return r.year; }),
       series: used.map(function (k) {
-        return { name: CATS[k].label, color: cvar(CATS[k].color), values: s.base.map(function (r) { return r.byCat[k] || 0; }) };
+        return { name: ACCOUNTS[k].label, color: cvar(ACCOUNTS[k].color), values: s.base.map(function (r) { return r.byAcct[k] || 0; }) };
       }),
       yFormat: wonAxis, xFormat: function (v) { return Math.round(v) + ''; }
     });
     $('#legendStack').innerHTML = used.map(function (k) {
-      return '<i style="--dot:' + cvar(CATS[k].color) + '">' + CATS[k].label + '</i>';
+      return '<i style="--dot:' + cvar(ACCOUNTS[k].color) + '">' + ACCOUNTS[k].label + '</i>';
     }).join('');
 
     /* 표 */
@@ -771,6 +906,7 @@
     pending = requestAnimationFrame(function () {
       renderHero();
       renderAlloc();
+      renderRateRef();
       renderSim();
       renderHistory();
     });
@@ -875,7 +1011,7 @@
     var t = totals();
     var entry = {
       id: id(), date: date, assets: a, debts: d, net: a - d,
-      note: $('#snapNote').value.trim(), byCat: t.byCat
+      note: $('#snapNote').value.trim(), byAcct: t.byAcct
     };
     state.history = state.history.filter(function (h) { return h.date !== date; });
     state.history.push(entry);
@@ -955,6 +1091,7 @@
     renderAssets();
     renderDebts();
     renderAlloc();
+    renderRateRef();
     renderHero();
     renderSim();
     renderHistory();
@@ -967,7 +1104,7 @@
     bootRender();
 
     $('#btnAddAsset').addEventListener('click', function () {
-      state.assets.push({ id: id(), cat: 'etc', name: '새 자산', amount: 0, rate: CATS.etc.rate, monthly: 0, on: true });
+      state.assets.push({ id: id(), acct: 'us', sym: 'qqq', name: '새 자산', amount: 0, monthly: 0, on: true });
       renderAssets(); softUpdate();
       var last = $('#assetList').lastElementChild;
       if (last) { last.classList.add('is-open'); last.scrollIntoView({ behavior: 'smooth', block: 'center' }); }

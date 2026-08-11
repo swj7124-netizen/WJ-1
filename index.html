@@ -88,19 +88,18 @@
             <input type="text" inputmode="decimal" id="setOpti">
           </div>
         </div>
-        <p class="hint">시나리오 조정폭은 자산군 변동성에 따라 다르게 적용됩니다. (예: 주식 ×1.2, 아파트 ×0.6, 현금 ×0.2)</p>
+        <p class="hint">시나리오 조정폭은 종목 변동성에 따라 다르게 적용됩니다.
+          (예: 나스닥2배 ×3.0, 나스닥1배 ×1.2, 서울아파트 ×0.7, SGOV ×0.15)</p>
       </div>
 
       <div class="card card-quiet">
-        <div class="quiet-title">참고 · 통상적인 장기 수익률</div>
-        <ul class="ref-list">
-          <li><span>아파트(전국 실거래)</span><b>연 2~3%</b></li>
-          <li><span>미국주식(S&amp;P500)</span><b>연 7~10%</b></li>
-          <li><span>한국주식(KOSPI)</span><b>연 4~6%</b></li>
-          <li><span>ISA(혼합 운용)</span><b>연 5~7%</b></li>
-          <li><span>연금(TDF·채권혼합)</span><b>연 4~6%</b></li>
-        </ul>
-        <p class="hint">모두 명목 기준이며 과거 데이터에 기반한 참고값입니다. 미래 수익률을 보장하지 않습니다.</p>
+        <div class="quiet-title">종목별 적용 수익률</div>
+        <div class="rate-ref" id="rateRef"></div>
+        <p class="hint">
+          통상적인 장기 <b>명목</b> 수익률 범위의 <b>중간값</b>을 자동으로 적용합니다. 개별 수정은 하지 않습니다.
+          레버리지 상품은 기초지수 배수가 아니라 <b>변동성 손실과 조달비용을 반영</b>한 값입니다.
+          과거 데이터에 근거한 추정이며 미래 수익률을 보장하지 않습니다.
+        </p>
       </div>
     </section>
 
