@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/styles.css?v=1.2.0">
 </head>
 <body>
 
@@ -227,10 +227,28 @@
         </ol>
       </div>
 
+      <div class="section-head"><h2>앱 업데이트</h2></div>
+      <div class="card">
+        <div class="ver-row">
+          <span>설치된 버전</span><b id="verNow">—</b>
+        </div>
+        <p class="hint" style="margin-top:9px">
+          앱을 새로 열면 자동으로 최신 버전을 받아옵니다. 화면이 그대로라면 아래 버튼으로
+          저장된 캐시를 비우고 강제로 다시 받아오세요. <b>입력한 데이터는 지워지지 않습니다.</b>
+        </p>
+        <button class="btn-secondary" id="btnUpdate" style="width:100%;margin-top:12px">최신 버전 강제로 받아오기</button>
+      </div>
+
       <div class="section-head"><h2>초기화</h2></div>
       <div class="card">
-        <p class="hint" style="margin-top:0">모든 자산·부채·기록이 삭제되고 기본값으로 되돌아갑니다.</p>
-        <button class="btn-danger" id="btnReset">전체 초기화</button>
+        <p class="hint" style="margin-top:0">
+          <b>기본 자산 목록 불러오기</b> — 자산·부채 항목만 최신 기본값으로 교체합니다.
+          새로 추가된 종목(코인·금·국내 ETF 등)을 한 번에 받고 싶을 때 사용하세요.
+          <b>기록과 목표는 그대로 유지됩니다.</b>
+        </p>
+        <button class="btn-secondary" id="btnReloadDefaults" style="width:100%;margin-top:11px">기본 자산 목록 불러오기</button>
+        <p class="hint">전체 초기화는 자산·부채·기록·목표가 <b>모두</b> 삭제됩니다.</p>
+        <button class="btn-danger" id="btnReset" style="width:100%;margin-top:9px">전체 초기화</button>
       </div>
 
       <p class="footnote">
@@ -274,7 +292,7 @@
   </div>
 </div>
 
-<script src="assets/chart.js"></script>
-<script src="assets/app.js"></script>
+<script src="assets/chart.js?v=1.2.0"></script>
+<script src="assets/app.js?v=1.2.0"></script>
 </body>
 </html>

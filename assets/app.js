@@ -7,7 +7,7 @@
   'use strict';
 
   var KEY = 'assetsim.state.v1';
-  var VERSION = '1.0.0';
+  var VERSION = '1.2.0';
   var THIS_YEAR = new Date().getFullYear();
 
   /* ─────────────── 계좌 구분 ───────────────
@@ -1346,6 +1346,19 @@
       this.value = '';
     });
 
+    $('#btnReloadDefaults').addEventListener('click', function () {
+      if (!confirm('자산·부채 항목을 최신 기본값으로 교체합니다.\n기록과 목표는 그대로 유지됩니다. 계속할까요?')) return;
+      var d = defaultState();
+      state.assets = d.assets;
+      state.debts = d.debts;
+      save(true);
+      bootRender();
+      toast('기본 자산 목록을 불러왔습니다');
+      $$('.tab').forEach(function (b) { b.classList.toggle('is-active', b.dataset.tab === 'input'); });
+      $$('.tab-panel').forEach(function (p) { p.classList.toggle('is-active', p.id === 'panel-input'); });
+      window.scrollTo(0, 0);
+    });
+
     $('#btnReset').addEventListener('click', function () {
       if (!confirm('모든 자산·부채·기록이 삭제됩니다. 정말 초기화할까요?')) return;
       if (!confirm('되돌릴 수 없습니다. 백업은 하셨나요?')) return;
@@ -1365,12 +1378,74 @@
       }
     });
 
-    // 서비스워커 (오프라인)
-    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function () { /* 무시 */ });
-      });
+    initUpdater();
+  }
+
+  /* ═══════════════ 업데이트 처리 ═══════════════ */
+  function initUpdater() {
+    var verEl = $('#verNow');
+    if (verEl) verEl.textContent = 'v' + VERSION;
+    var btn = $('#btnUpdate');
+    if (btn) btn.addEventListener('click', forceUpdate);
+
+    if (!('serviceWorker' in navigator) || location.protocol.indexOf('http') !== 0) return;
+
+    // 새 서비스워커가 제어권을 넘겨받으면 한 번만 새로고침
+    var hadController = !!navigator.serviceWorker.controller;
+    var reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloading) return;   // 최초 설치 때는 새로고침하지 않음
+      reloading = true;
+      location.reload();
+    });
+
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        reg.update();
+        // 대기 중인 새 버전이 있으면 즉시 적용
+        if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+        reg.addEventListener('updatefound', function () {
+          var sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener('statechange', function () {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              toast('새 버전을 받았습니다 — 새로고침합니다');
+              sw.postMessage('skipWaiting');
+            }
+          });
+        });
+      }).catch(function () { /* 무시 */ });
+    });
+
+    // 앱을 다시 열 때마다 업데이트 확인
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible') return;
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (reg) reg.update();
+      }).catch(function () { /* 무시 */ });
+    });
+  }
+
+  /** 캐시를 모두 비우고 최신본을 강제로 받아온다 (사용자 데이터는 유지) */
+  function forceUpdate() {
+    toast('최신 버전을 받아오는 중…');
+    save(true);
+    var jobs = [];
+    if (window.caches && caches.keys) {
+      jobs.push(caches.keys().then(function (ks) {
+        return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+      }));
     }
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    Promise.all(jobs)['catch'](function () { /* 무시 */ }).then(function () {
+      // 쿼리스트링을 바꿔 브라우저 HTTP 캐시까지 우회
+      var base = location.href.split('?')[0].split('#')[0];
+      location.replace(base + '?u=' + Date.now());
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

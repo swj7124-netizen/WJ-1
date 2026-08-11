@@ -447,6 +447,17 @@ td .down { color: var(--down); }
 .mini-ico { font-family: -apple-system; }
 .save-state { margin-top: 11px; font-size: 11.5px; color: var(--text-3); text-align: center; }
 
+.ver-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 12.5px; color: var(--text-3);
+}
+.ver-row b {
+  font-size: 16px; font-weight: 700; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 /* 카드 안 · 적용 수익률 안내 */
 .rate-note {
   margin-top: 13px; padding: 11px 13px;
