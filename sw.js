@@ -4,13 +4,14 @@
 
    ※ CACHE 이름은 배포할 때마다 올려야 이전 캐시가 정리됩니다. */
 
-var VERSION = '1.2.0';
+var VERSION = '2.0.0';
 var CACHE = 'assetsim-' + VERSION;
 var ASSETS = [
   './',
   './index.html',
   './assets/styles.css?v=' + VERSION,
   './assets/chart.js?v=' + VERSION,
+  './assets/ocr.js?v=' + VERSION,
   './assets/app.js?v=' + VERSION,
   './manifest.webmanifest',
   './icons/icon-180.png',
@@ -59,6 +60,23 @@ self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   var url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
+
+  // vendor/ 아래는 버전이 바뀌지 않는 대용량 파일이라 캐시 우선 (OCR 엔진 재다운로드 방지)
+  if (url.pathname.indexOf('/vendor/') >= 0) {
+    e.respondWith(
+      caches.match(e.request).then(function (hit) {
+        if (hit) return hit;
+        return fetch(e.request).then(function (res) {
+          if (res && res.ok) {
+            var c2 = res.clone();
+            caches.open(CACHE).then(function (c) { c.put(e.request, c2); });
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
 
   e.respondWith(
     fetch(e.request, { cache: 'no-store' })
